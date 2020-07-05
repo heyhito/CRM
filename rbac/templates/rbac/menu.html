@@ -1,0 +1,15 @@
+{## 左侧菜单样式#}
+    {% for menu_k,menu_v in order_dict.items %}
+        <li class="treeview">
+          <a href="#"><i class="fa {{ menu_v.icon }}"></i> <span>{{ menu_v.title }}</span>
+            <span class="pull-right-container">
+                <i class="fa fa-angle-left pull-right"></i>
+              </span>
+          </a>
+          <ul class="treeview-menu {{ menu_v.class }}">
+              {% for sec_menu in menu_v.children %}
+            <li  class="{{ sec_menu.class }}"><a href="{{ sec_menu.url }}">{{ sec_menu.title }}</a></li>
+              {% endfor %}
+          </ul>
+        </li>
+    {% endfor %}

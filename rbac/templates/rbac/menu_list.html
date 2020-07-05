@@ -1,0 +1,116 @@
+{% extends 'layout.html' %}
+
+{% block css %}
+    <style>
+        .permission-area tr.parent {
+            background-color: #cae7fd;;
+        }
+
+        .menu-body tr.active {
+            background-color: #f1f7fd;
+            border-left: 3px solid #fdc00f;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div style="margin-top: 20px;margin-left: 10px">
+        <div class="col-sm-3">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="fa fa-book">菜单管理</i>
+                    <a href="{% url 'rbac:menu_add' %}" class="btn btn-success pull-right" style="padding: 0 12px"><i
+                            class="fa fa-plus"></i>新建</a>
+                </div>
+                <div class="panel-body" style="padding: 0">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>图标</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody class="menu-body">
+                        {% for menu in all_menus %}
+                            <tr class="{% if mid == menu.id|safe %}
+            active
+            {% endif %} ">
+                                <td><a href="{% url 'rbac:menu_list' %}?mid={{ menu.id }}">{{ menu.title }}</a></td>
+                                <td><i class="fa {{ menu.icon }}"></i></td>
+                                <td>
+                                    <a href="{% url 'rbac:menu_edit' menu.id %}"><i class="fa fa-edit"></i></a>
+                                    <a href="{% url 'rbac:menu_del' menu.id %}"><i class="fa fa-trash-o"></i></a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-8">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="fa fa-cubes">权限管理</i>
+                    <a href="{% url 'rbac:multi_permissions' %}" class="btn btn-success pull-right" style="padding: 0 12px"><i class="fa fa-scissors"></i>批量操作</a>
+                    <a href="{% url 'rbac:permission_add' %}" class="btn btn-primary pull-right" style="padding: 0 12px"><i
+                            class="fa fa-plus"></i>新建</a>
+                </div>
+                <div class="panel-body" style="padding: 0">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>URL</th>
+                            <th>URL别名</th>
+                            <th>菜单</th>
+                            <th>所属菜单</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody class="permission-area">
+                        {% for parent_menu in permission_dict.values %}
+                            <tr class="parent">
+                                <td><i class="fa fa-caret-down icon"></i> {{ parent_menu.title }}</td>
+                                <td>{{ parent_menu.url }}</td>
+                                <td>{{ parent_menu.url_name }}</td>
+                                <td>{{ parent_menu.menu__title }}</td>
+                                <td></td>
+                                <td>
+                                    <a href="{% url 'rbac:permission_edit' parent_menu.id %}"><i class="fa fa-edit"></i></a>
+                                    <a href="{% url 'rbac:permission_del' parent_menu.id %}"><i class="fa fa-trash-o"></i></a>
+                                </td>
+                            </tr>
+                            {% for children_menu in parent_menu.children %}
+                                <tr>
+                                    <td>{{ children_menu.title }}</td>
+                                    <td>{{ children_menu.url }}</td>
+                                    <td>{{ children_menu.url_name }}</td>
+                                    <td></td>
+                                    <td>{{ children_menu.parent__title }}</td>
+                                    <td>
+                                        <a href="{% url 'rbac:permission_edit' children_menu.id %}"><i class="fa fa-edit"></i></a>
+                                        <a href="{% url 'rbac:permission_del' children_menu.id %}"><i class="fa fa-trash-o"></i></a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script>
+    $('.parent').click(function () {
+        $(this).find('.icon').toggleClass('fa-caret-right')
+        $(this).nextUntil('.parent').toggleClass('hidden')
+        {#nextUntil('.parent') 意思是.parent下的所有兄弟tr标签#}
+    })
+    </script>
+{% endblock %}

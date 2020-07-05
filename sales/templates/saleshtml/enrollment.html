@@ -1,0 +1,63 @@
+{% extends 'layout.html' %}
+{% load tags %}
+{% block title %}
+    <h1>报名信息展示</h1>
+{% endblock %}
+
+{% block content %}
+    <a href="{% url 'add_enrollment' %}" class="btn btn-primary">添加报名信息</a>
+    <div class="form-inline">
+        <form class="form-group pull-right">
+            <div class="form-group">
+                <select name="search_field" id="search_field" class="form-control">
+                    <option value="customer__name__contains">客户名称</option>
+                    <option value="school__name__contains">校区</option>
+
+                </select>
+                <input type="text" class="form-control" id="keyword" placeholder="请输入搜索内容" autocomplete="off" name="kw">
+                <button type="submit" class="btn btn-default">搜索</button>
+            </div>
+        </form>
+    </div>
+    <form action="" method="post">
+        {% csrf_token %}
+        <div class="form-group pull-left">
+            <select name="action" id="action" class="form-control">
+                    <option value="delete_consultrecord">删除</option>
+            </select>
+        </div>
+        <button class="btn btn-danger">Go</button>
+        <table class="table table-striped table-hover table-bordered ">
+            <thead>
+            <tr>
+                <th><input type="checkbox" id="select_all">选择</th>
+                <th>序号</th>
+                <th>为什么报名</th>
+                <th>学完想达到的具体期望</th>
+                <th>报名日期</th>
+                <th>客户名称</th>
+                <th>校区</th>
+                <th>所报班级</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for obj in consult_obj %}
+                <tr>
+                    <td><input type="checkbox" name="cid" value="{{ obj.id }}"></td>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ obj.why_us }}</td>
+                    <td>{{ obj.your_expectation }}</td>
+                    <td>{{ obj.enrolled_date|date:'Y-m-d H:i:s' }}</td>
+                    <td>{{ obj.customer }}</td>
+                    <td>{{ obj.school }}</td>
+                    <td>{{ obj.enrolment_class }}</td>
+                    <td><a href="{% resolve_url request 'edit_enrollment' obj.id %}"><i class="fa fa-edit"></i></a></td>
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+    </form>
+    {{ paging_html }}
+{% endblock %}

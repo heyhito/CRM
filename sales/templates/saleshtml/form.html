@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+{#{% if tag == '1' %}#}
+{#{% block title %}#}
+{#    <h1>{{ lable }}</h1>#}
+{#{% endblock %}#}
+{#    #}
+{#{% endif %}#}
+{% block title %}
+    <h1>{{ label }}</h1>
+{% endblock %}
+
+{% block content %}
+    <form class="form-horizontal" method="post" novalidate>
+    {% csrf_token %}
+        {% for obj in customer_form %}
+            <div class="form-group">
+                <label for="{{ obj.id_for_label }}" class="col-sm-2 control-label">{{ obj.label }}</label>
+                <div class="col-sm-6">
+                    {{ obj }}
+                </div>
+            <div class="col-sm-4">
+                {{ obj.errors.0 }}
+            </div>
+            </div>
+        {% endfor %}
+    <button class="btn btn-success col-sm-offset-9">提交</button>
+
+    </form>
+{% endblock %}

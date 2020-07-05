@@ -1,0 +1,206 @@
+import re
+
+from django.shortcuts import (render, redirect,HttpResponse)
+from django import forms
+from django.conf import settings
+from django.db.models import Q
+from django.urls import reverse
+from django.views import View
+from django.forms.fields import DateField
+from django.core.exceptions import ValidationError
+
+
+from sales.utils.paging import Mypaging
+from multiselectfield import MultiSelectFormField
+from sales import models
+
+# Create your views here.
+
+
+# 手机校验
+def mobile_validate(value):
+    mobile_re = re.compile(r'^(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$')
+    if not mobile_re.match(value):
+        raise ValidationError('手机号码格式错误')
+
+# 生成注册标签
+class RegisterForm(forms.Form):
+    username = forms.CharField(
+        min_length=3,
+        max_length=16,
+        label='用户名',
+        widget=forms.widgets.TextInput(attrs={'class': 'username', 'placeholder': '您的用户名', 'autocomplete': 'off', }),
+        error_messages={
+            'required': '用户名不能为空',
+            'min_length': '不能小于3位',
+            'max_length': '不能大于16位',
+        }
+    )
+    password = forms.CharField(
+        max_length=32,
+        min_length=6,
+        label='密码',
+        widget=forms.widgets.PasswordInput(
+            attrs={'class': 'password', 'placeholder': "输入密码", 'oncontextmenu': "return false", 'onpaste': 'return false'}),
+        error_messages={
+            'required': '密码不能为空',
+            'min_length': '不能小于6位',
+            'max_length': '不能大于32位',
+        }
+    )
+    r_password = forms.CharField(
+        max_length=32,
+        min_length=6,
+        label='确认密码',
+        widget=forms.widgets.PasswordInput(
+            attrs={'class': 'password', 'placeholder': '再次输入密码', 'oncontextmenu': 'return false',
+                   'onpaste': 'return false'}),
+        error_messages={
+            'required': '密码不能为空',
+        }
+    )
+    telephone = forms.CharField(
+        validators=[mobile_validate, ],
+        error_messages={
+            'required': '手机号码不能为空'
+        },
+        widget=forms.TextInput(attrs={
+            'type': "phone_number",
+            'placeholder': '输入手机号码',
+            'autocomplete': 'off',
+            'id': 'number',
+        })
+    )
+    email = forms.EmailField(
+        label='邮箱',
+        widget=forms.widgets.TextInput(attrs={
+            'placeholder': '输入邮箱地址',
+            'oncontextmenu': 'return false',
+            'type': 'email',
+        }),
+        error_messages={
+            'required': '邮箱不能为空',
+            'invalid': "邮箱格式正确"
+        }
+    )
+
+    def clean(self):
+        values = self.cleaned_data
+        pwd = values.get('password')
+        r_pwd = values.get('r_password')
+        if pwd == r_pwd:
+            return values
+        else:
+            self.add_error('r_password', '两次输入的密码不一致！')
+
+
+
+
+# 客户信息
+class CustomerView(View):
+    def get(self,request):
+        get_path = request.path  # 获取请求路径
+        # 公户请求
+        if get_path == reverse('customer'):  # 查找销售为None的客户
+            customer_list = models.Customer.objects.filter(consultant__isnull=True)
+        else:
+            # 私户请求
+            user_obj = request.user_obj
+            customer_list = models.Customer.objects.filter(consultant=user_obj)
+        # 当前页
+        search_conditon = request.GET.copy()  # 获取搜索条件
+        # QueryDict<{'search_field':'name__contains','kw':'钢铁侠'}>
+        """
+        将request.get对象改成可修改的，因为queryDict对象默认是immutable，需要通过调用__copy__方法，该方法设置的是mutable=True
+        """
+        page_num = request.GET.get('page')  # 当前页码
+        kw = request.GET.get('kw')  # 查询关键字
+        search_field = request.GET.get('search_field')  # 选择查询的字段
+        """
+        判断是搜索还是客户信息展示
+        """
+        if kw:
+            kw = kw.strip()
+            q_obj = Q()
+            q_obj.children.append((search_field, kw))
+            customer_list = customer_list.filter(q_obj)  # name__contains = kw
+        else:
+            customer_list = customer_list
+        page_count = customer_list.count()
+        per_page_show = settings.PER_PAGE_SHOW
+        show_page = settings.SHOW_PAGE
+        base_url = request.path
+        paging_obj = Mypaging(page_num, page_count, per_page_show, show_page, base_url, search_conditon)
+        paging_html = paging_obj.page_html()
+        customer = customer_list.reverse()[paging_obj.start_page:paging_obj.end_page]
+        return render(request, 'saleshtml/customers.html', {'customer': customer, 'paging_html': paging_html})
+
+    def post(self,request):
+        action = request.POST.get('action')
+        cids = request.POST.getlist('cid')
+        customer = models.Customer.objects.filter(id__in=cids)
+        if hasattr(self,action):
+            getattr(self,action)(request,customer)
+        return redirect(request.path)
+
+    def reverse_gs(self,request,customer):
+        """
+        公共用户转私有用户
+        :param request:
+        :param customer:
+        :return:
+        """
+        customer.update(consultant_id=request.session.get('user_id'))
+
+    def reverse_sg(self,request,customer):
+        """
+        私有用户转公共用户
+        :param request:
+        :param customer:
+        :return:
+        """
+        customer.update(consultant=None)
+
+
+# 生成客户添加标签
+class CustomerForm(forms.ModelForm):
+    class Meta:
+        model = models.Customer
+        fields = '__all__'
+        error_messages={
+            'qq': {'required':'不能为空'},
+            'name': {'required':'不能为空'},
+            'course':{'required':'不能为空'},
+            'sex':{'required':'不能为空'},
+        }
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in self.fields.values():
+            if not isinstance(field,MultiSelectFormField):
+                field.widget.attrs.update({'class':'form-control'})
+            if isinstance(field,DateField):
+                field.widget.attrs.update({'type':'date'})
+
+
+# 客户添加和编辑
+def add_edit_customer(request,cid=None):
+    """
+    # 客户添加和编辑
+    :param request:
+    :param cid:客户id
+    :return:
+    """
+    label = '编辑客户' if cid else '添加客户'
+    customer_obj = models.Customer.objects.filter(pk=cid).first()
+    if request.method == 'GET':
+        customer_form = CustomerForm(instance=customer_obj)
+        return render(request,'saleshtml/edit_customers.html',{'customer_form':customer_form,'label':label})
+    else:
+        customer_form = CustomerForm(request.POST,instance=customer_obj)
+        if customer_form.is_valid():
+            customer_form.save()
+            redirect_path = request.GET.get('next')
+            print(redirect_path)
+            return redirect(redirect_path)
+        else:
+            return render(request, 'saleshtml/edit_customers.html', {'customer_form': customer_form,'label':label})
